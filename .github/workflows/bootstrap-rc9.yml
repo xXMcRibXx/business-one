@@ -1,0 +1,40 @@
+name: Bootstrap RC9
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct RC9 when both chunks exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f .bootstrap/rc9.part1 || ! -f .bootstrap/rc9.part2 ]]; then
+            echo "Waiting for both RC9 chunks."
+            exit 0
+          fi
+          cat .bootstrap/rc9.part1 .bootstrap/rc9.part2 | base64 -d > /tmp/rc9.zip
+          rm -rf /tmp/rc9
+          mkdir -p /tmp/rc9
+          unzip -q /tmp/rc9.zip -d /tmp/rc9
+          shopt -s dotglob
+          cp -R /tmp/rc9/business-one-rc9/* .
+          rm -rf .bootstrap
+          rm -f .github/workflows/bootstrap-rc9.yml
+          git config user.name "business-one-bootstrap"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Import Business One RC9 launch candidate"
+          git push
